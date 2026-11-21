@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Opening Marketplace searches</title>
+<style>
+body{font:15px system-ui,-apple-system,"Segoe UI",sans-serif;background:#10161c;color:#e3e9ef;margin:0;padding:32px 20px}
+.w{max-width:620px;margin:0 auto}
+h1{font-size:20px;margin:0 0 8px}
+p{color:#93a3b2;margin:6px 0}
+button{font:600 15px inherit;background:#6aaee0;color:#10161c;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;margin:10px 0}
+ul{padding-left:18px} a{color:#6aaee0}
+.bad{color:#ec7b70}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1 id="h">Opening Marketplace searches…</h1>
+  <p id="msg"></p>
+  <button id="again" type="button" hidden>Open all searches</button>
+  <ul id="list"></ul>
+</div>
+<script>
+// Liquitronics helper for the Marketplace Search Tracker (Nov 2026).
+// Claude artifact pages can open only one outside link per click, so the tracker's
+// Open all 8 button opens this page, which opens one Facebook Marketplace search per area.
+// It holds no data. It reads the search from the link after # and opens ONLY
+// https://www.facebook.com/marketplace/ addresses it builds itself.
+(function(){
+  var p={};
+  location.hash.replace(/^#/,"").split("&").forEach(function(kv){
+    var i=kv.indexOf("="); if(i>0){ try{ p[kv.slice(0,i)]=decodeURIComponent(kv.slice(i+1).replace(/\+/g," ")); }catch(e){} }
+  });
+  var term=String(p.q||"").trim().slice(0,120);
+  var centers=String(p.c||"").split(",").filter(function(c){ return /^[A-Za-z0-9_-]{1,40}$/.test(c); }).slice(0,20);
+  var max=/^\d{1,6}$/.test(p.max||"")?p.max:"";
+  var days=/^(1|7|30)$/.test(p.days||"")?p.days:"";
+  var radius=/^\d{1,4}$/.test(p.r||"")?p.r:"805";
+  var del=/^(all|local_pick_up|shipping)$/.test(p.d||"")?p.d:"all";
+  var list=document.getElementById("list"), msg=document.getElementById("msg"), again=document.getElementById("again"), h=document.getElementById("h");
+  if(!term||!centers.length){ h.textContent="Nothing to open"; msg.className="bad"; msg.textContent="Open this page from the Open all 8 button on the Marketplace Search Tracker."; return; }
+  document.title="Searching: "+term;
+  var urls=centers.map(function(c){
+    var u="https://www.facebook.com/marketplace/"+encodeURIComponent(c)+"/search?query="+encodeURIComponent(term)+"&radius="+radius+"&deliveryMethod="+del;
+    if(max) u+="&maxPrice="+max;
+    if(days) u+="&daysSinceListed="+days;
+    return u;
+  });
+  urls.forEach(function(u,i){ var li=document.createElement("li"), a=document.createElement("a"); a.href=u; a.target="_blank"; a.rel="noopener noreferrer"; a.textContent="Area "+(i+1)+" ("+centers[i]+")"; li.appendChild(a); list.appendChild(li); });
+  function openAll(){
+    urls.forEach(function(u){ try{ window.open(u,"_blank","noopener"); }catch(e){} });
+  }
+  function tryOpen(){
+    // With noopener, window.open returns null even when it worked, so blocked tabs are found by a test window first.
+    var test=null; try{ test=window.open("about:blank","_blank"); }catch(e){}
+    if(!test){ return false; }
+    try{ test.close(); }catch(e){}
+    openAll(); return true;
+  }
+  if(tryOpen()){
+    h.textContent="Opened "+urls.length+" searches for “"+term+"”";
+    msg.textContent="You can close this tab. The links below open single areas again if you need them.";
+    setTimeout(function(){ try{ window.close(); }catch(e){} },1500);
+  } else {
+    h.textContent="Firefox blocked the tabs";
+    msg.textContent="Allow pop-ups for this site once: click Options (or Preferences) in the yellow bar at the top of the page and choose Allow pop-ups for this site. Then press the button below.";
+    again.hidden=false;
+    again.onclick=function(){ openAll(); h.textContent="Opened "+urls.length+" searches for “"+term+"”"; msg.textContent="You can close this tab."; again.hidden=true; };
+  }
+})();
+</script>
+</body>
+</html>
